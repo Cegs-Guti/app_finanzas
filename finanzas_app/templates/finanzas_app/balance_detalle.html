@@ -1,0 +1,141 @@
+{% extends 'layouts/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ balance.get_mes_display }} {{ balance.anio }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-calendar3"></i> {{ balance.get_mes_display }} {{ balance.anio }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'finanzas:balance_editar' balance.pk %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-pencil"></i> Editar
+        </a>
+        <a href="{% url 'finanzas:balance_eliminar' balance.pk %}" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash"></i> Eliminar
+        </a>
+        <a href="{% url 'finanzas:historial' %}" class="btn btn-outline-dark btn-sm">
+            <i class="bi bi-arrow-left"></i> Historial
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-saldo-inicial p-3">
+            <p class="text-muted small mb-1">Saldo inicial</p>
+            <h5>${{ balance.saldo_inicial }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-ingresos p-3">
+            <p class="text-muted small mb-1">Ingresos</p>
+            <h5 class="text-success">${{ balance.total_ingresos }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-gastos p-3">
+            <p class="text-muted small mb-1">Gastos</p>
+            <h5 class="text-danger">${{ balance.total_gastos }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-saldo-final p-3">
+            <p class="text-muted small mb-1">Saldo final</p>
+            <h5 class="{% if balance.saldo_final >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                ${{ balance.saldo_final }}
+            </h5>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-plus"></i> Agregar movimiento
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'finanzas:movimiento_crear' balance.pk %}">
+                    {% csrf_token %}
+                    {{ form_mov|crispy }}
+                    <button type="submit" class="btn btn-dark">
+                        <i class="bi bi-check-lg"></i> Agregar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-list-ul"></i> Movimientos</div>
+            <div class="card-body p-0">
+                {% if balance.movimientos.all %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Fecha</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in balance.movimientos.all %}
+                            <tr>
+                                <td>
+                                    <span class="badge {% if mov.tipo == 'ingreso' %}badge-ingreso{% else %}badge-gasto{% endif %}">
+                                        {{ mov.tipo|capfirst }}
+                                    </span>
+                                </td>
+                                <td>{{ mov.categoria }}</td>
+                                <td class="text-muted small">{{ mov.descripcion|default:"—" }}</td>
+                                <td>${{ mov.monto }}</td>
+                                <td>{{ mov.fecha }}</td>
+                                <td>
+                                    <form method="POST" action="{% url 'finanzas:movimiento_eliminar' mov.pk %}">
+                                        {% csrf_token %}
+                                        <button class="btn btn-sm btn-outline-danger border-0" type="submit">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted p-3 mb-0">Sin movimientos aún.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> Gastos por categoría</div>
+            <div class="card-body"><canvas id="chartGastos" height="250"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> Ingresos por categoría</div>
+            <div class="card-body"><canvas id="chartIngresos" height="250"></canvas></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const chart = {{ chart_json|safe }};
+const COLORS = ['#0d6efd','#198754','#dc3545','#ffc107','#0dcaf0','#6f42c1','#fd7e14','#20c997','#6c757d'];
+if (chart.gastos_labels.length) {
+    new Chart(document.getElementById('chartGastos'), {
+        type: 'doughnut',
+        data: { labels: chart.gastos_labels, datasets: [{ data: chart.gastos_data, backgroundColor: COLORS }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+if (chart.ingresos_labels.length) {
+    new Chart(document.getElementById('chartIngresos'), {
+        type: 'doughnut',
+        data: { labels: chart.ingresos_labels, datasets: [{ data: chart.ingresos_data, backgroundColor: COLORS }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+</script>
+{% endblock %}

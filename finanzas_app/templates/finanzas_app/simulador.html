@@ -1,0 +1,143 @@
+{% extends 'layouts/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Simulador de Balance{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-calculator me-2 text-success"></i>Simulador de Balance Mensual</h2>
+    <div class="d-flex gap-2">
+        {% if user.is_authenticated %}
+        <a href="{% url 'finanzas:sim_guardar' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-cloud-arrow-up me-1"></i>Guardar balance
+        </a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-cloud-arrow-up me-1"></i>Iniciar sesión para guardar
+        </a>
+        {% endif %}
+        <a href="{% url 'finanzas:sim_limpiar' %}" class="btn btn-outline-danger btn-sm"
+           onclick="return confirm('¿Reiniciar la simulación?')">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reiniciar
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info alert-dismissible fade show" role="alert">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>Modo simulación:</strong> los datos se borran al cerrar la pestaña.
+    {% if not user.is_authenticated %}
+    <a href="{% url 'login' %}" class="alert-link">Inicia sesión</a> para guardarlos.
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+
+<!-- Resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-resumen text-center p-3">
+            <small class="text-muted">Saldo inicial</small>
+            <h4 class="text-dark fw-bold">${{ saldo_inicial|floatformat:2 }}</h4>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-resumen text-center p-3">
+            <small class="text-muted">Total ingresos</small>
+            <h4 class="text-success fw-bold">${{ total_ingresos|floatformat:2 }}</h4>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-resumen text-center p-3">
+            <small class="text-muted">Total gastos</small>
+            <h4 class="text-danger fw-bold">${{ total_gastos|floatformat:2 }}</h4>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-resumen text-center p-3">
+            <small class="text-muted">Saldo final</small>
+            <h4 class="fw-bold {% if saldo_final >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ saldo_final|floatformat:2 }}
+            </h4>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Formularios -->
+    <div class="col-md-4">
+        <!-- Saldo inicial -->
+        <div class="card border-0 shadow-sm rounded-4 mb-3 p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-cash-stack me-1"></i>Saldo inicial</h6>
+            <form method="POST">
+                {% csrf_token %}
+                {{ form_inicio|crispy }}
+                <button type="submit" name="set_saldo" class="btn btn-outline-dark btn-sm w-100">
+                    Establecer saldo
+                </button>
+            </form>
+        </div>
+
+        <!-- Agregar transacción -->
+        <div class="card border-0 shadow-sm rounded-4 p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1"></i>Agregar transacción</h6>
+            <form method="POST">
+                {% csrf_token %}
+                {{ form_tx|crispy }}
+                <button type="submit" name="add_transaccion" class="btn btn-success btn-sm w-100">
+                    <i class="bi bi-plus-lg me-1"></i>Agregar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de transacciones -->
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4 p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Transacciones</h6>
+            {% if transacciones %}
+            <div class="table-responsive">
+                <table class="table table-finanzas table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th class="text-end">Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transacciones %}
+                        <tr>
+                            <td>
+                                <span class="badge {% if tx.tipo == 'ingreso' %}badge-ingreso{% else %}badge-gasto{% endif %}">
+                                    {{ tx.tipo|capfirst }}
+                                </span>
+                            </td>
+                            <td>{{ tx.categoria }}</td>
+                            <td class="text-muted small">{{ tx.descripcion|default:"–" }}</td>
+                            <td class="text-end fw-bold {% if tx.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                ${{ tx.monto|floatformat:2 }}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'finanzas:sim_eliminar_tx' forloop.counter0 %}"
+                                   class="btn btn-outline-danger btn-sm py-0"
+                                   onclick="return confirm('¿Eliminar transacción?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-4">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                Sin transacciones aún. Agrega la primera.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

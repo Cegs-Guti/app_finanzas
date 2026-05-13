@@ -1,0 +1,41 @@
+/* ─── Finanzas App – Estilos personalizados ─── */
+
+body {
+    background-color: #f0f4f8;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+main.container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+/* Cards de resumen */
+.card-resumen {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    transition: transform .15s;
+}
+.card-resumen:hover {
+    transform: translateY(-3px);
+}
+
+/* Tabla de transacciones */
+.table-finanzas thead {
+    background-color: #343a40;
+    color: #fff;
+}
+.badge-ingreso  { background-color: #198754; }
+.badge-gasto    { background-color: #dc3545; }
+
+/* Gráfico placeholder */
+#chart-container {
+    min-height: 300px;
+}

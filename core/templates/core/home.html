@@ -1,0 +1,52 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}FinanzasMes – Inicio{% endblock %}
+
+{% block content %}
+<div class="py-5 text-center">
+    <i class="bi bi-wallet2 display-1 text-success"></i>
+    <h1 class="mt-3 fw-bold">FinanzasMes</h1>
+    <p class="lead text-muted">
+        Lleva el control de tus ingresos y gastos mes a mes.<br>
+        Simula sin registrarte o guarda tus balances con una cuenta.
+    </p>
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="{% url 'finanzas:simulador' %}" class="btn btn-success btn-lg">
+            <i class="bi bi-calculator me-1"></i>Simular ahora
+        </a>
+        {% if not user.is_authenticated %}
+        <a href="{% url 'login' %}" class="btn btn-outline-dark btn-lg">
+            <i class="bi bi-person-circle me-1"></i>Iniciar sesión
+        </a>
+        {% else %}
+        <a href="{% url 'finanzas:dashboard' %}" class="btn btn-outline-dark btn-lg">
+            <i class="bi bi-bar-chart-line me-1"></i>Mis Balances
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <div class="col-md-4">
+        <div class="card card-resumen text-center p-4">
+            <i class="bi bi-calculator-fill text-success fs-1 mb-2"></i>
+            <h5>Simula sin cuenta</h5>
+            <p class="text-muted small">Crea un balance mensual al instante. Los datos se borran al cerrar la página.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-resumen text-center p-4">
+            <i class="bi bi-cloud-check-fill text-primary fs-1 mb-2"></i>
+            <h5>Guarda con tu cuenta</h5>
+            <p class="text-muted small">Inicia sesión para persistir tus balances y retomarlos cuando quieras.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-resumen text-center p-4">
+            <i class="bi bi-graph-up-arrow text-warning fs-1 mb-2"></i>
+            <h5>Visualiza tu historial</h5>
+            <p class="text-muted small">Ve gráficos y resúmenes de tus ingresos vs. gastos mes a mes.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

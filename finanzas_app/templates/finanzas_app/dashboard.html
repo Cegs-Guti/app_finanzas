@@ -1,0 +1,98 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Mis Balances{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-bar-chart-line me-2 text-primary"></i>Mis Balances</h2>
+    <a href="{% url 'finanzas:crear_balance' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo balance
+    </a>
+</div>
+
+{% if balances %}
+<div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+    <h6 class="fw-bold mb-3"><i class="bi bi-graph-up me-1"></i>Resumen histórico</h6>
+    <div id="chart-container">
+        <canvas id="chartHistorico"></canvas>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 p-3">
+    <div class="table-responsive">
+        <table class="table table-finanzas table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    <th class="text-end">Saldo inicial</th>
+                    <th class="text-end">Ingresos</th>
+                    <th class="text-end">Gastos</th>
+                    <th class="text-end">Saldo final</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in balances %}
+                <tr>
+                    <td class="fw-bold">{{ b.get_mes_display }} {{ b.anio }}</td>
+                    <td class="text-end">${{ b.saldo_inicial|floatformat:2 }}</td>
+                    <td class="text-end text-success">${{ b.total_ingresos|floatformat:2 }}</td>
+                    <td class="text-end text-danger">${{ b.total_gastos|floatformat:2 }}</td>
+                    <td class="text-end fw-bold {% if b.saldo_final >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ${{ b.saldo_final|floatformat:2 }}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'finanzas:detalle' b.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'finanzas:editar_balance' b.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'finanzas:eliminar_balance' b.pk %}" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+    <h5 class="text-muted">Aún no tienes balances guardados.</h5>
+    <a href="{% url 'finanzas:simulador' %}" class="btn btn-success me-2">
+        <i class="bi bi-calculator me-1"></i>Simular
+    </a>
+    <a href="{% url 'finanzas:crear_balance' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Crear balance
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if balances %}
+<script>
+const labels = {{ labels_json|safe }};
+const dataIngresos = {{ data_ingresos_json|safe }};
+const dataGastos = {{ data_gastos_json|safe }};
+const dataSaldo = {{ data_saldo_json|safe }};
+const ctx = document.getElementById('chartHistorico').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            { label: 'Ingresos', data: dataIngresos, backgroundColor: 'rgba(25,135,84,0.7)', borderRadius: 6 },
+            { label: 'Gastos', data: dataGastos, backgroundColor: 'rgba(220,53,69,0.7)', borderRadius: 6 },
+            { label: 'Saldo final', data: dataSaldo, type: 'line', borderColor: '#0d6efd',
+              backgroundColor: 'rgba(13,110,253,0.1)', pointBackgroundColor: '#0d6efd', tension: 0.3, fill: true },
+        ],
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'layouts/nada.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Iniciar sesión{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mx-auto">
+        <div class="card shadow-sm border-0 rounded-4 p-4">
+            <div class="text-center mb-3">
+                <i class="bi bi-wallet2 fs-1 text-success"></i>
+                <h4 class="fw-bold mt-1">FinanzasMes</h4>
+            </div>
+            {% if form.errors %}
+            <div class="alert alert-danger">Usuario o contraseña incorrectos.</div>
+            {% endif %}
+            <form action="{% url 'login' %}" method="POST">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <button class="btn btn-success w-100 mt-2" type="submit">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Entrar
+                </button>
+            </form>
+            <p class="text-center text-muted small mt-3">
+                ¿Sin cuenta? <a href="{% url 'finanzas:simulador' %}">Simula sin registrarte</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

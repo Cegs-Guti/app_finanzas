@@ -1,0 +1,185 @@
+{% extends 'layouts/base.html' %}
+{% load crispy_forms_tags finanzas_tags %}
+
+{% block title %}Simulador de Balance{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-calculator"></i> Simulador
+        <span class="badge-simulacion ms-2">Datos temporales</span>
+    </h2>
+    {% if balance %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'login' %}" class="btn btn-dark btn-sm">
+            <i class="bi bi-save"></i> Guardar con cuenta
+        </a>
+        <form method="POST" action="{% url 'finanzas:sim_limpiar' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-danger btn-sm" type="submit"
+                    onclick="return confirm('¿Reiniciar la simulación?')">
+                <i class="bi bi-trash"></i> Reiniciar
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="alert alert-warning d-flex align-items-center" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    Los datos del simulador se borran al cerrar el navegador.
+    <a href="{% url 'login' %}" class="ms-2 fw-bold">Inicia sesión</a> para guardarlos.
+</div>
+
+{% if not balance %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-plus-circle"></i> Crear balance de simulación
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'finanzas:sim_crear_balance' %}">
+                    {% csrf_token %}
+                    {{ form_balance|crispy }}
+                    <button type="submit" class="btn btn-warning w-100 mt-2">
+                        <i class="bi bi-play-fill"></i> Empezar simulación
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<h4 class="mb-3">{{ meses_dict|get_item:balance.mes }} {{ balance.anio }}</h4>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-saldo-inicial p-3">
+            <p class="text-muted small mb-1">Saldo inicial</p>
+            <h5>${{ balance.saldo_inicial }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-ingresos p-3">
+            <p class="text-muted small mb-1">Ingresos</p>
+            <h5 class="text-success">${{ total_ingresos }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-gastos p-3">
+            <p class="text-muted small mb-1">Gastos</p>
+            <h5 class="text-danger">${{ total_gastos }}</h5>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-saldo-final p-3">
+            <p class="text-muted small mb-1">Saldo final</p>
+            <h5 class="{% if saldo_final >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                ${{ saldo_final }}
+            </h5>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-plus"></i> Agregar movimiento
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'finanzas:sim_agregar_movimiento' %}">
+                    {% csrf_token %}
+                    {{ form_movimiento|crispy }}
+                    <button type="submit" class="btn btn-dark">
+                        <i class="bi bi-check-lg"></i> Agregar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-list-ul"></i> Movimientos</div>
+            <div class="card-body p-0">
+                {% if movimientos %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Fecha</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos %}
+                            <tr>
+                                <td>
+                                    <span class="badge {% if mov.tipo == 'ingreso' %}badge-ingreso{% else %}badge-gasto{% endif %}">
+                                        {{ mov.tipo|capfirst }}
+                                    </span>
+                                </td>
+                                <td>{{ mov.categoria }}</td>
+                                <td class="text-muted small">{{ mov.descripcion|default:"—" }}</td>
+                                <td>${{ mov.monto }}</td>
+                                <td>{{ mov.fecha }}</td>
+                                <td>
+                                    <form method="POST" action="{% url 'finanzas:sim_eliminar_movimiento' forloop.counter0 %}">
+                                        {% csrf_token %}
+                                        <button class="btn btn-sm btn-outline-danger border-0" type="submit">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted p-3 mb-0">Sin movimientos aún.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        {% if chart_json %}
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> Gastos por categoría</div>
+            <div class="card-body"><canvas id="chartGastos" height="250"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> Ingresos por categoría</div>
+            <div class="card-body"><canvas id="chartIngresos" height="250"></canvas></div>
+        </div>
+        {% else %}
+        <div class="card p-4 text-center text-muted">
+            <i class="bi bi-bar-chart-line fs-1 mb-2"></i>
+            <p>Los gráficos aparecerán cuando agregues movimientos.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if chart_json %}
+<script>
+const chart = {{ chart_json|safe }};
+const COLORS = ['#0d6efd','#198754','#dc3545','#ffc107','#0dcaf0','#6f42c1','#fd7e14','#20c997','#6c757d'];
+if (chart.gastos_labels.length) {
+    new Chart(document.getElementById('chartGastos'), {
+        type: 'doughnut',
+        data: { labels: chart.gastos_labels, datasets: [{ data: chart.gastos_data, backgroundColor: COLORS }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+if (chart.ingresos_labels.length) {
+    new Chart(document.getElementById('chartIngresos'), {
+        type: 'doughnut',
+        data: { labels: chart.ingresos_labels, datasets: [{ data: chart.ingresos_data, backgroundColor: COLORS }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+</script>
+{% endif %}
+{% endblock %}
