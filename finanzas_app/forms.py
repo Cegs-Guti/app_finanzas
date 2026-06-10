@@ -7,23 +7,17 @@ import datetime
 class BalanceForm(forms.ModelForm):
     class Meta:
         model = Balance
-        fields = ['mes', 'anio', 'saldo_inicial']
+        fields = ['mes', 'anio']
         widgets = {
             'anio': forms.NumberInput(attrs={
                 'min': 2000,
                 'max': 2100,
                 'placeholder': datetime.date.today().year,
             }),
-            'saldo_inicial': forms.NumberInput(attrs={
-                'min': 0,
-                'step': '0.01',
-                'placeholder': '0.00',
-            }),
         }
         labels = {
             'mes': 'Mes',
             'anio': 'Año',
-            'saldo_inicial': 'Saldo inicial ($)',
         }
 
     def __init__(self, *args, usuario=None, **kwargs):
@@ -73,7 +67,6 @@ class TransaccionForm(forms.ModelForm):
         )
 
 
-# ── Formulario para el simulador anónimo (sin modelo) ──────────────────────
 
 class SimuladorTransaccionForm(forms.Form):
     tipo = forms.ChoiceField(
@@ -111,3 +104,4 @@ class SimuladorInicioForm(forms.Form):
         widget=forms.NumberInput(attrs={'min': 0, 'step': '0.01', 'placeholder': '0.00'}),
         label='Saldo inicial ($)',
     )
+
