@@ -11,13 +11,20 @@
 </div>
 
 {% if balances %}
-<!-- Gráfico resumen anual -->
+
+<div class="alert alert-info d-flex align-items-center" role="alert">
+    <i class="bi bi-info-circle me-2"></i>
+    Puedes filtrar por año y ver gráficos detallados en el
+    <a href="{% url 'finanzas:dashboard' %}" class="alert-link ms-1">Dashboard principal</a>.
+</div>
+
+
 <div class="card mb-4">
     <div class="card-header"><i class="bi bi-bar-chart-line"></i> Resumen comparativo</div>
     <div class="card-body"><canvas id="chartHistorial" height="100"></canvas></div>
 </div>
 
-<!-- Tabla de balances -->
+
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
