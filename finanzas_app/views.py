@@ -1,6 +1,7 @@
 import json
 import datetime
 from decimal import Decimal
+from collections import defaultdict
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -18,7 +19,6 @@ SESSION_KEY = 'simulador_balance'
 
 
 def _get_sim(request):
-    """Devuelve el dict del simulador guardado en sesión, o uno vacío."""
     return request.session.get(SESSION_KEY, {
         'saldo_inicial': '0',
         'transacciones': [],
@@ -28,12 +28,11 @@ def _get_sim(request):
 def simulador(request):
     sim = _get_sim(request)
 
-    # Formulario de saldo inicial
     if request.method == 'POST' and 'set_saldo' in request.POST:
         form_inicio = SimuladorInicioForm(request.POST)
         if form_inicio.is_valid():
             sim['saldo_inicial'] = str(form_inicio.cleaned_data['saldo_inicial'])
-            sim['transacciones'] = []          # reset al cambiar saldo inicial
+            sim['transacciones'] = []
             request.session[SESSION_KEY] = sim
             messages.success(request, 'Saldo inicial actualizado.')
             return redirect('finanzas:simulador')
@@ -42,7 +41,6 @@ def simulador(request):
             initial={'saldo_inicial': sim['saldo_inicial']}
         )
 
-    # Formulario de transacción
     if request.method == 'POST' and 'add_transaccion' in request.POST:
         form_tx = SimuladorTransaccionForm(request.POST)
         if form_tx.is_valid():
@@ -59,7 +57,6 @@ def simulador(request):
     else:
         form_tx = SimuladorTransaccionForm()
 
-    # Calcular totales
     saldo_inicial = Decimal(sim['saldo_inicial'])
     transacciones = sim['transacciones']
     total_ingresos = sum(Decimal(t['monto']) for t in transacciones if t['tipo'] == 'ingreso')
@@ -78,7 +75,6 @@ def simulador(request):
 
 
 def simulador_eliminar_tx(request, idx):
-    """Elimina una transacción del simulador por índice."""
     sim = _get_sim(request)
     try:
         sim['transacciones'].pop(int(idx))
@@ -90,7 +86,6 @@ def simulador_eliminar_tx(request, idx):
 
 
 def simulador_limpiar(request):
-    """Borra toda la simulación de la sesión."""
     if SESSION_KEY in request.session:
         del request.session[SESSION_KEY]
     messages.info(request, 'Simulación reiniciada.')
@@ -99,10 +94,6 @@ def simulador_limpiar(request):
 
 @login_required
 def simulador_guardar(request):
-    """
-    Guarda la simulación de sesión como un Balance real en la BD.
-    Pide al usuario que elija mes y año.
-    """
     sim = _get_sim(request)
     if not sim['transacciones']:
         messages.warning(request, 'No hay transacciones para guardar.')
@@ -123,7 +114,6 @@ def simulador_guardar(request):
                     descripcion=tx.get('descripcion', ''),
                     monto=Decimal(tx['monto']),
                 )
-            # Limpiar sesión
             if SESSION_KEY in request.session:
                 del request.session[SESSION_KEY]
             messages.success(request, f'Balance guardado: {balance}')
@@ -131,33 +121,74 @@ def simulador_guardar(request):
     else:
         hoy = datetime.date.today()
         form = BalanceForm(
-            initial={'mes': hoy.month, 'anio': hoy.year,
-                     'saldo_inicial': sim['saldo_inicial']},
+            initial={'mes': hoy.month, 'anio': hoy.year},
             usuario=request.user,
         )
 
     return render(request, 'finanzas_app/simulador_guardar.html', {'form': form})
-#Requiere del login para pdoer usarse
+
 
 @login_required
 def dashboard(request):
-    balances = Balance.objects.filter(usuario=request.user)
+    """
+    Dashboard principal con historial filtrable por año y gráfico
+    de barras de gastos por categoría del mes seleccionado.
+    """
+    todos_balances = Balance.objects.filter(usuario=request.user)
 
-    # Datos para gráfico (últimos 12 balances ordenados cronológicamente)
-    balances_chart = list(
-        balances.order_by('anio', 'mes')[:12]
+    
+    anios_disponibles = sorted(
+        todos_balances.values_list('anio', flat=True).distinct(),
+        reverse=True
     )
+
+    
+    anio_sel = request.GET.get('anio', '')
+    try:
+        anio_sel = int(anio_sel) if anio_sel else None
+    except ValueError:
+        anio_sel = None
+
+    if anio_sel:
+        balances_filtrados = todos_balances.filter(anio=anio_sel).order_by('mes')
+    else:
+        balances_filtrados = todos_balances.order_by('anio', 'mes')
+
+    
+    balances_chart = list(balances_filtrados)
     labels = [f"{b.get_mes_display()} {b.anio}" for b in balances_chart]
     data_ingresos = [float(b.total_ingresos) for b in balances_chart]
     data_gastos = [float(b.total_gastos) for b in balances_chart]
     data_saldo_final = [float(b.saldo_final) for b in balances_chart]
 
+    
+    gastos_cat_total = defaultdict(float)
+    ingresos_cat_total = defaultdict(float)
+    for b in balances_chart:
+        for tx in b.transacciones.all():
+            if tx.tipo == 'gasto':
+                gastos_cat_total[tx.categoria] += float(tx.monto)
+            else:
+                ingresos_cat_total[tx.categoria] += float(tx.monto)
+
+    
+    gastos_cat_sorted = dict(
+        sorted(gastos_cat_total.items(), key=lambda x: x[1], reverse=True)
+    )
+    ingresos_cat_sorted = dict(
+        sorted(ingresos_cat_total.items(), key=lambda x: x[1], reverse=True)
+    )
+
     return render(request, 'finanzas_app/dashboard.html', {
-        'balances': balances,
+        'balances': balances_filtrados,
+        'anios_disponibles': anios_disponibles,
+        'anio_sel': anio_sel,
         'labels_json': json.dumps(labels),
         'data_ingresos_json': json.dumps(data_ingresos),
         'data_gastos_json': json.dumps(data_gastos),
         'data_saldo_json': json.dumps(data_saldo_final),
+        'gastos_cat_json': json.dumps(gastos_cat_sorted),
+        'ingresos_cat_json': json.dumps(ingresos_cat_sorted),
     })
 
 
@@ -168,6 +199,7 @@ def crear_balance(request):
         if form.is_valid():
             balance = form.save(commit=False)
             balance.usuario = request.user
+            balance.saldo_inicial = 0
             balance.save()
             messages.success(request, f'Balance {balance} creado.')
             return redirect('finanzas:detalle', pk=balance.pk)
@@ -215,8 +247,7 @@ def detalle_balance(request, pk):
     balance = get_object_or_404(Balance, pk=pk, usuario=request.user)
     transacciones = balance.transacciones.all()
 
-    # Datos para gráfico de dona
-    from collections import defaultdict
+    
     gastos_cat = defaultdict(float)
     ingresos_cat = defaultdict(float)
     for tx in transacciones:
@@ -224,6 +255,14 @@ def detalle_balance(request, pk):
             gastos_cat[tx.categoria] += float(tx.monto)
         else:
             ingresos_cat[tx.categoria] += float(tx.monto)
+
+    
+    gastos_cat_sorted = dict(
+        sorted(gastos_cat.items(), key=lambda x: x[1], reverse=True)
+    )
+    ingresos_cat_sorted = dict(
+        sorted(ingresos_cat.items(), key=lambda x: x[1], reverse=True)
+    )
 
     form_tx = TransaccionForm()
     if request.method == 'POST':
@@ -239,8 +278,8 @@ def detalle_balance(request, pk):
         'balance': balance,
         'transacciones': transacciones,
         'form_tx': form_tx,
-        'gastos_cat_json': json.dumps(dict(gastos_cat)),
-        'ingresos_cat_json': json.dumps(dict(ingresos_cat)),
+        'gastos_cat_json': json.dumps(gastos_cat_sorted),
+        'ingresos_cat_json': json.dumps(ingresos_cat_sorted),
     })
 
 
