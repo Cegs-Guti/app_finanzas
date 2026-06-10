@@ -1,5 +1,5 @@
 {% extends 'layouts/base.html' %}
-
+prueba
 {% block title %}Mis Balances{% endblock %}
 
 {% block content %}
@@ -11,23 +11,95 @@
 </div>
 
 {% if balances %}
+
+<div class="card border-0 shadow-sm rounded-4 p-3 mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="fw-semibold text-muted"><i class="bi bi-funnel me-1"></i>Filtrar por año:</span>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'finanzas:dashboard' %}"
+               class="btn btn-sm {% if not anio_sel %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+                Todos
+            </a>
+            {% for anio in anios_disponibles %}
+            <a href="?anio={{ anio }}"
+               class="btn btn-sm {% if anio_sel == anio %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                {{ anio }}
+            </a>
+            {% endfor %}
+        </div>
+        {% if anio_sel %}
+        <span class="badge bg-primary ms-auto">
+            <i class="bi bi-calendar3 me-1"></i>Mostrando {{ anio_sel }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+
 <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
-    <h6 class="fw-bold mb-3"><i class="bi bi-graph-up me-1"></i>Resumen histórico</h6>
-    <div id="chart-container">
-        <canvas id="chartHistorico"></canvas>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">
+            <i class="bi bi-graph-up me-1"></i>
+            Resumen histórico {% if anio_sel %}— {{ anio_sel }}{% endif %}
+        </h6>
+        <div class="btn-group btn-group-sm" role="group" id="chartToggle">
+            <button type="button" class="btn btn-outline-secondary active" data-view="all">Todo</button>
+            <button type="button" class="btn btn-outline-success" data-view="ingresos">Ingresos</button>
+            <button type="button" class="btn btn-outline-danger" data-view="gastos">Gastos</button>
+            <button type="button" class="btn btn-outline-primary" data-view="saldo">Saldo</button>
+        </div>
+    </div>
+    <canvas id="chartHistorico" height="110"></canvas>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+            <h6 class="fw-bold mb-3">
+                <i class="bi bi-tags me-1 text-danger"></i>
+                Gastos por categoría {% if anio_sel %}({{ anio_sel }}){% endif %}
+            </h6>
+            <div id="gastos-cat-container">
+                <canvas id="chartGastosCat"></canvas>
+            </div>
+            <p class="text-muted small text-center d-none" id="gastos-cat-empty">
+                <i class="bi bi-inbox me-1"></i>Sin gastos registrados.
+            </p>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+            <h6 class="fw-bold mb-3">
+                <i class="bi bi-tags me-1 text-success"></i>
+                Ingresos por categoría {% if anio_sel %}({{ anio_sel }}){% endif %}
+            </h6>
+            <div id="ingresos-cat-container">
+                <canvas id="chartIngresosCat"></canvas>
+            </div>
+            <p class="text-muted small text-center d-none" id="ingresos-cat-empty">
+                <i class="bi bi-inbox me-1"></i>Sin ingresos registrados.
+            </p>
+        </div>
     </div>
 </div>
 
 <div class="card border-0 shadow-sm rounded-4 p-3">
+    <div class="d-flex justify-content-between align-items-center px-1 mb-2">
+        <h6 class="fw-bold mb-0">
+            <i class="bi bi-table me-1"></i>Detalle de balances
+        </h6>
+        <small class="text-muted">{{ balances|length }} balance{{ balances|length|pluralize:",s" }}</small>
+    </div>
     <div class="table-responsive">
         <table class="table table-finanzas table-hover align-middle mb-0">
             <thead>
                 <tr>
                     <th>Período</th>
-                    <th class="text-end">Saldo inicial</th>
                     <th class="text-end">Ingresos</th>
                     <th class="text-end">Gastos</th>
                     <th class="text-end">Saldo final</th>
+                    <th class="text-end">Resultado</th>
                     <th></th>
                 </tr>
             </thead>
@@ -35,20 +107,26 @@
                 {% for b in balances %}
                 <tr>
                     <td class="fw-bold">{{ b.get_mes_display }} {{ b.anio }}</td>
-                    <td class="text-end">${{ b.saldo_inicial|floatformat:2 }}</td>
                     <td class="text-end text-success">${{ b.total_ingresos|floatformat:2 }}</td>
                     <td class="text-end text-danger">${{ b.total_gastos|floatformat:2 }}</td>
                     <td class="text-end fw-bold {% if b.saldo_final >= 0 %}text-success{% else %}text-danger{% endif %}">
                         ${{ b.saldo_final|floatformat:2 }}
                     </td>
                     <td class="text-end">
-                        <a href="{% url 'finanzas:detalle' b.pk %}" class="btn btn-sm btn-outline-primary">
+                        {% if b.saldo_final >= b.saldo_inicial %}
+                        <span class="badge bg-success"><i class="bi bi-trending-up"></i> Positivo</span>
+                        {% else %}
+                        <span class="badge bg-danger"><i class="bi bi-trending-down"></i> Negativo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'finanzas:detalle' b.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
                             <i class="bi bi-eye"></i>
                         </a>
-                        <a href="{% url 'finanzas:editar_balance' b.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{% url 'finanzas:editar_balance' b.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="{% url 'finanzas:eliminar_balance' b.pk %}" class="btn btn-sm btn-outline-danger">
+                        <a href="{% url 'finanzas:eliminar_balance' b.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>
@@ -58,10 +136,22 @@
         </table>
     </div>
 </div>
+
 {% else %}
 <div class="text-center py-5">
     <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
-    <h5 class="text-muted">Aún no tienes balances guardados.</h5>
+    <h5 class="text-muted">
+        {% if anio_sel %}
+            No hay balances para el año {{ anio_sel }}.
+        {% else %}
+            Aún no tienes balances guardados.
+        {% endif %}
+    </h5>
+    {% if anio_sel %}
+    <a href="{% url 'finanzas:dashboard' %}" class="btn btn-outline-secondary me-2">
+        <i class="bi bi-arrow-left me-1"></i>Ver todos
+    </a>
+    {% endif %}
     <a href="{% url 'finanzas:simulador' %}" class="btn btn-success me-2">
         <i class="bi bi-calculator me-1"></i>Simular
     </a>
@@ -75,24 +165,145 @@
 {% block extra_js %}
 {% if balances %}
 <script>
-const labels = {{ labels_json|safe }};
-const dataIngresos = {{ data_ingresos_json|safe }};
-const dataGastos = {{ data_gastos_json|safe }};
-const dataSaldo = {{ data_saldo_json|safe }};
-const ctx = document.getElementById('chartHistorico').getContext('2d');
-new Chart(ctx, {
+
+const PALETTE_GASTOS = [
+    '#dc3545','#e74c3c','#e67e22','#f39c12','#c0392b',
+    '#d35400','#922b21','#cb4335','#a93226','#7b241c',
+];
+const PALETTE_INGRESOS = [
+    '#198754','#27ae60','#2ecc71','#1abc9c','#16a085',
+    '#117a65','#0e6655','#229954','#1e8449','#196f3d',
+];
+
+
+const labels        = {{ labels_json|safe }};
+const dataIngresos  = {{ data_ingresos_json|safe }};
+const dataGastos    = {{ data_gastos_json|safe }};
+const dataSaldo     = {{ data_saldo_json|safe }};
+const gastosCat     = {{ gastos_cat_json|safe }};
+const ingresosCat   = {{ ingresos_cat_json|safe }};
+
+
+const ctxHist = document.getElementById('chartHistorico').getContext('2d');
+const dsIngresos = {
+    label: 'Ingresos',
+    data: dataIngresos,
+    backgroundColor: 'rgba(25,135,84,0.75)',
+    borderColor: '#198754',
+    borderWidth: 1,
+    borderRadius: 6,
+    order: 2,
+};
+const dsGastos = {
+    label: 'Gastos',
+    data: dataGastos,
+    backgroundColor: 'rgba(220,53,69,0.75)',
+    borderColor: '#dc3545',
+    borderWidth: 1,
+    borderRadius: 6,
+    order: 3,
+};
+const dsSaldo = {
+    label: 'Saldo final',
+    data: dataSaldo,
+    type: 'line',
+    borderColor: '#0d6efd',
+    backgroundColor: 'rgba(13,110,253,0.08)',
+    pointBackgroundColor: '#0d6efd',
+    pointRadius: 5,
+    tension: 0.35,
+    fill: true,
+    order: 1,
+};
+
+const chartHist = new Chart(ctxHist, {
     type: 'bar',
-    data: {
-        labels: labels,
-        datasets: [
-            { label: 'Ingresos', data: dataIngresos, backgroundColor: 'rgba(25,135,84,0.7)', borderRadius: 6 },
-            { label: 'Gastos', data: dataGastos, backgroundColor: 'rgba(220,53,69,0.7)', borderRadius: 6 },
-            { label: 'Saldo final', data: dataSaldo, type: 'line', borderColor: '#0d6efd',
-              backgroundColor: 'rgba(13,110,253,0.1)', pointBackgroundColor: '#0d6efd', tension: 0.3, fill: true },
-        ],
+    data: { labels, datasets: [dsIngresos, dsGastos, dsSaldo] },
+    options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+                callbacks: {
+                    label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('es-CL', {minimumFractionDigits:2})}`,
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: v => '$' + v.toLocaleString('es-CL'),
+                }
+            }
+        }
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
 });
+
+
+document.getElementById('chartToggle').addEventListener('click', e => {
+    const btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    document.querySelectorAll('#chartToggle .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view;
+    chartHist.data.datasets[0].hidden = view !== 'all' && view !== 'ingresos';
+    chartHist.data.datasets[1].hidden = view !== 'all' && view !== 'gastos';
+    chartHist.data.datasets[2].hidden = view !== 'all' && view !== 'saldo';
+    chartHist.update();
+});
+
+
+function buildBarChart(canvasId, emptyId, dataObj, palette, label) {
+    const cats   = Object.keys(dataObj);
+    const values = Object.values(dataObj);
+    if (cats.length === 0) {
+        document.getElementById(canvasId).classList.add('d-none');
+        document.getElementById(emptyId).classList.remove('d-none');
+        return;
+    }
+    const colors = cats.map((_, i) => palette[i % palette.length]);
+    new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: cats,
+            datasets: [{
+                label,
+                data: values,
+                backgroundColor: colors.map(c => c + 'cc'),
+                borderColor: colors,
+                borderWidth: 1,
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            indexAxis: 'y',          // barras horizontales
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` $${ctx.parsed.x.toLocaleString('es-CL', {minimumFractionDigits:2})}`,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: v => '$' + v.toLocaleString('es-CL') }
+                },
+                y: { ticks: { font: { size: 12 } } }
+            }
+        }
+    });
+}
+
+
+buildBarChart('chartGastosCat', 'gastos-cat-empty', gastosCat, PALETTE_GASTOS, 'Gastos ($)');
+
+
+buildBarChart('chartIngresosCat', 'ingresos-cat-empty', ingresosCat, PALETTE_INGRESOS, 'Ingresos ($)');
 </script>
 {% endif %}
 {% endblock %}
