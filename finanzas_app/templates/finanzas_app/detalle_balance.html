@@ -21,27 +21,21 @@
     </div>
 </div>
 
-<!-- Resumen numérico -->
+
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="card card-resumen text-center p-3">
-            <small class="text-muted">Saldo inicial</small>
-            <h4 class="fw-bold">${{ balance.saldo_inicial|floatformat:2 }}</h4>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="card card-resumen text-center p-3">
             <small class="text-muted">Total ingresos</small>
             <h4 class="text-success fw-bold">${{ balance.total_ingresos|floatformat:2 }}</h4>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="card card-resumen text-center p-3">
             <small class="text-muted">Total gastos</small>
             <h4 class="text-danger fw-bold">${{ balance.total_gastos|floatformat:2 }}</h4>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-12 col-md-4">
         <div class="card card-resumen text-center p-3">
             <small class="text-muted">Saldo final</small>
             <h4 class="fw-bold {% if balance.saldo_final >= 0 %}text-success{% else %}text-danger{% endif %}">
@@ -52,9 +46,11 @@
 </div>
 
 <div class="row g-4">
-    <!-- Formulario nueva transacción -->
+
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-4 p-3">
+
+        
+        <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
             <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1"></i>Nueva transacción</h6>
             <form method="POST">
                 {% csrf_token %}
@@ -65,15 +61,29 @@
             </form>
         </div>
 
-        <!-- Gráficos de dona -->
-        <div class="card border-0 shadow-sm rounded-4 p-3 mt-3">
-            <h6 class="fw-bold mb-2"><i class="bi bi-pie-chart me-1"></i>Gastos por categoría</h6>
-            <canvas id="chartGastos"></canvas>
-        </div>
     </div>
 
-    <!-- Tabla de transacciones -->
+    
     <div class="col-md-8">
+
+        <!-- Gráfico de barras: gastos por categoría -->
+        <div class="card border-0 shadow-sm rounded-4 p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-bar-chart-line me-1 text-danger"></i>
+                    ¿En qué gasté más este mes?
+                </h6>
+                <span class="badge bg-danger-subtle text-danger">
+                    Total: ${{ balance.total_gastos|floatformat:2 }}
+                </span>
+            </div>
+            <canvas id="chartGastosBar" height="150"></canvas>
+            <p class="text-muted small text-center d-none" id="bar-gastos-empty">
+                <i class="bi bi-inbox me-1"></i>Sin gastos para mostrar.
+            </p>
+        </div>
+
+        <!-- Tabla de transacciones -->
         <div class="card border-0 shadow-sm rounded-4 p-3">
             <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Transacciones</h6>
             {% if transacciones %}
@@ -125,34 +135,59 @@
 
 {% block extra_js %}
 <script>
-const gastosData = {{ gastos_cat_json|safe }};
-const gastosLabels = Object.keys(gastosData);
-const gastosValues = Object.values(gastosData);
+const gastosData   = {{ gastos_cat_json|safe }};
+const ingresosData = {{ ingresos_cat_json|safe }};
 
-if (gastosLabels.length > 0) {
-    const ctx = document.getElementById('chartGastos').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
+const PALETTE_GASTOS   = ['#dc3545','#e67e22','#f39c12','#c0392b','#d35400','#922b21','#cb4335','#a93226','#7b241c','#fd7e14'];
+const PALETTE_INGRESOS = ['#198754','#27ae60','#2ecc71','#1abc9c','#16a085','#117a65','#0e6655','#229954','#1e8449','#196f3d'];
+
+
+function buildBarH(canvasId, emptyId, dataObj, palette, label) {
+    const cats   = Object.keys(dataObj);
+    const values = Object.values(dataObj);
+    if (!cats.length) {
+        document.getElementById(canvasId).classList.add('d-none');
+        document.getElementById(emptyId).classList.remove('d-none');
+        return;
+    }
+    const colors = cats.map((_, i) => palette[i % palette.length]);
+    new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'bar',
         data: {
-            labels: gastosLabels,
+            labels: cats,
             datasets: [{
-                data: gastosValues,
-                backgroundColor: [
-                    '#dc3545','#fd7e14','#ffc107','#20c997',
-                    '#0dcaf0','#6f42c1','#d63384','#6c757d',
-                    '#198754','#0d6efd',
-                ],
+                label,
+                data: values,
+                backgroundColor: colors.map(c => c + 'bb'),
+                borderColor: colors,
                 borderWidth: 1,
-            }],
+                borderRadius: 5,
+            }]
         },
         options: {
+            indexAxis: 'y',
             responsive: true,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
-        },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` $${ctx.parsed.x.toLocaleString('es-CL', {minimumFractionDigits:2})}`,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: v => '$' + v.toLocaleString('es-CL') }
+                },
+                y: { ticks: { font: { size: 12 } } }
+            }
+        }
     });
-} else {
-    document.getElementById('chartGastos').parentElement.innerHTML +=
-        '<p class="text-muted small text-center">Sin gastos registrados.</p>';
 }
+
+
+buildBarH('chartGastosBar', 'bar-gastos-empty', gastosData, PALETTE_GASTOS, 'Gastos ($)');
 </script>
 {% endblock %}
+
